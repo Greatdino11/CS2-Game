@@ -46,7 +46,7 @@ mini_map_canvas.place(relx=0.81, rely=0.05)
 class NPC:
     def __init__(self, position):
         self.position = position
-        self.speed = 1
+        self.speed = 0.5
 
     def update(self, player_pos, player_angle, maze):
         dx = player_pos[0] - self.position[0]
@@ -289,10 +289,10 @@ def update():
             if corrected_npc_angle > 2 * math.pi:
                 corrected_npc_angle -= 2 * math.pi
             npc_ray_length = npc_distance * math.cos(corrected_npc_angle - player_angle)
-            npc_wall_height = HEIGHT / npc_ray_length * TILE_SIZE * size_multiplier
+            npc_wall_height = (HEIGHT / npc_ray_length * TILE_SIZE * size_multiplier)/2
 
             # Render NPC with adjusted size
-            npc_width = npc_wall_height  # Set the width equal to the height
+            npc_width = npc_wall_height/2  # Set the width equal to the height
 
             npc_dx = npc.position[0] - player_pos[0]
             npc_dy = npc.position[1] - player_pos[1]
@@ -301,7 +301,7 @@ def update():
 
             # Adjust NPC's rendering position on the screen based on relative position
             npc_render_x = (WIDTH / 2 - npc_width / 2) + npc_dx
-            npc_render_y = (HEIGHT / 2 - npc_wall_height / 4) + npc_dy
+            npc_render_y = (HEIGHT / 2 - npc_wall_height / 4)
 
             # Render NPC with adjusted position
             canvas.create_rectangle(npc_render_x, npc_render_y, npc_render_x + npc_width, npc_render_y + npc_wall_height / 2, fill="#800000", outline="#800000")
