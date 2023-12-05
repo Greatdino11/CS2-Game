@@ -10,6 +10,10 @@ ROTATION_SPEED = 0.1
 collidingWall = False
 anim_frame = 0
 facing = ""
+x_offset = 0
+npc_hit = False
+npc_behind_wall = True
+npc_is_being_displayed = False
 
 maze = [
     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
@@ -118,7 +122,7 @@ def is_npc_behind_wall(player_pos, npc_pos, maze):
     return False  # NPC is not behind a wall
 
 def cast_rays(player_pos, player_angle, npc_pos):
-    global collidingWall, distance_to_wall, ray_angle, facing
+    global collidingWall, distance_to_wall, ray_angle, facing, npc_hit
     rays = []
     ray_angle = player_angle - FOV / 2
 
@@ -146,18 +150,16 @@ def cast_rays(player_pos, player_angle, npc_pos):
     angle_to_npc = math.atan2(npc_dy, npc_dx)
     if player_angle > 0:
         angle_difference = abs(player_angle - angle_to_npc) % 6
-        print(player_angle/2, "   ", angle_to_npc, "   ", angle_difference)
+        #print(player_angle/2, "   ", angle_to_npc, "   ", angle_difference)
     else:
         angle_difference = abs(player_angle - angle_to_npc) % 6
-        print(player_angle, "   ", angle_to_npc, "   ", angle_difference)
+        #print(player_angle, "   ", angle_to_npc, "   ", angle_difference)
 
 
     threshold_angle = math.pi / 5
 
 
     # Check if NPC is hit by a ray
-
-    npc_hit = False
     if angle_difference > 0:
         if angle_difference*2 < threshold_angle:
             npc_hit = True
@@ -169,7 +171,7 @@ def cast_rays(player_pos, player_angle, npc_pos):
     return rays, npc_hit
 
 def on_key_press(event):
-    global player_pos, player_angle, collidingWall, distance_to_wall, anim_frame, facing
+    global player_pos, player_angle, collidingWall, distance_to_wall, anim_frame, facing, x_offset, npc_hit, npc_behind_wall, npc_is_being_displayed
     new_x, new_y = player_pos[0], player_pos[1]
     facing = ""
 
@@ -197,14 +199,22 @@ def on_key_press(event):
     if event.keysym == 'a':
         player_angle -= ROTATION_SPEED
         facing = "left"
+        if npc_behind_wall != True:
+            x_offset += 60
+        else:
+            x_offset = 0
         if player_angle <= -6:
-            print("poo")
+            #print("poo")
             player_angle = 0
     elif event.keysym == 'd':
         player_angle += ROTATION_SPEED
         facing = "right"
+        if npc_behind_wall != True:
+            x_offset -= 60
+        else:
+            x_offset = 0
         if player_angle >= 6:
-            print("poop")
+            #print("poop")
             player_angle = 0
 
     player_pos[0] = lerp(player_pos[0], new_x, 0.2)
@@ -234,8 +244,15 @@ def draw_mini_map():
     mini_map_canvas.create_rectangle(npc_x * TILE_SIZE // 4, npc_y * TILE_SIZE // 4, (npc_x + 1) * TILE_SIZE // 4, (npc_y + 1) * TILE_SIZE // 4, fill="red")
 
 def update():
-    global ray_angle, anim_frame
+    global ray_angle, anim_frame, x_offset, npc_behind_wall, npc_is_being_displayed
     canvas.delete("all")
+
+    if x_offset % 3600 == 0:
+        npc_is_being_displayed = False
+        x_offset = 0
+    if x_offset % -3600 == 0:
+        npc_is_being_displayed = False
+        x_offset = 0
 
     for i in range(int(HEIGHT)):
         r = int(lerp(120 - 1.55 * i, 0.6, 0))
@@ -280,6 +297,11 @@ def update():
             corrected -= 2
         ray_length *= 1.5*math.cos(corrected)
 
+        #print(ray_angle)
+
+        if ray_length < 5:
+            ray_length = 5
+
         wall_height = HEIGHT / ray_length * TILE_SIZE
 
         max_wall_height = HEIGHT
@@ -315,6 +337,7 @@ def update():
 
     # If NPC is hit, render it in the 3D world
     if npc_hit:
+        #print(ray_length)
         npc_dx = npc.position[0] - player_pos[0]
         npc_dy = npc.position[1] - player_pos[1]
         npc_distance = math.sqrt(npc_dx ** 2 + npc_dy ** 2)
@@ -333,7 +356,7 @@ def update():
         # Check if the NPC is within the field of view to render it with perspective
         npc_behind_wall = is_npc_behind_wall(player_pos, npc.position, maze)
         if npc_behind_wall != True:
-            print("e")
+            #print("visible")
             # Render NPC with perspective using raycaster
             corrected_npc_angle = math.atan2(npc_dy, npc_dx)
             if corrected_npc_angle < 0:
@@ -345,7 +368,7 @@ def update():
                 npc_ray_length = npc_distance * math.cos(corrected_npc_angle - player_angle/4)
             else:
                 npc_ray_length = npc_distance * math.cos(corrected_npc_angle - player_angle)
-            print(npc_ray_length)
+            #(npc_ray_length)
 
             if player_angle > 0:
                 npc_wall_height = (HEIGHT / npc_ray_length/2 * TILE_SIZE * size_multiplier)/2
@@ -360,17 +383,23 @@ def update():
 
             npc_dx = npc.position[0] - player_pos[0]
             npc_dy = npc.position[1] - player_pos[1]
-            npc_screen_x = WIDTH / 2 + npc_dx
-            npc_screen_y = HEIGHT / 1.9
+            npc_screen_x = WIDTH / 2
+            npc_screen_y = HEIGHT / 2
 
             # Adjust NPC's rendering position on the screen based on relative position
             npc_render_x = npc_screen_x
             npc_render_y = npc_screen_y
+            
             # Render NPC with adjusted position
+            npc_is_being_displayed = True
+
             if player_angle > 0:
-                canvas.create_rectangle(npc_render_x - npc_width/2, npc_render_y, npc_render_x + npc_width/2, npc_render_y + npc_wall_height / 2, fill="#800000", outline="#800000")
+                canvas.create_rectangle(npc_render_x - npc_width/2 + x_offset, npc_render_y, npc_render_x + npc_width/2 + x_offset, npc_render_y + npc_wall_height / 2, fill="#800000", outline="#800000")
             else:
-                canvas.create_rectangle(npc_render_x - npc_width/2, npc_render_y, npc_render_x + npc_width/2, npc_render_y + npc_wall_height / 2, fill="#800000", outline="#800000")
+                canvas.create_rectangle(npc_render_x - npc_width/2 + x_offset, npc_render_y, npc_render_x + npc_width/2 + x_offset, npc_render_y + npc_wall_height / 2, fill="#800000", outline="#800000")
+        else:
+            x_offset = 0
+            npc_is_being_displayed = False
 
     draw_mini_map()
 
